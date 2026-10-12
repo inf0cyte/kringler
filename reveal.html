@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>KRINGLE</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .card {
+    margin-top: 8px;
+    padding: 28px 22px;
+    max-width: 520px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+  }
+  .greet { margin: 0; color: var(--muted); font-size: 1.05rem; }
+  .greet b { color: var(--ink); }
+  .recipient {
+    margin: 10px 0 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2.2rem, 10vw, 3.4rem);
+    line-height: 1.1;
+    color: var(--green);
+    overflow-wrap: anywhere;
+  }
+  .err { color: var(--warn); margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="brand">
+    <h1>KRINGLE</h1>
+    <p><b>K</b>ramer's <b>R</b>obotically <b>I</b>mposed <b>N</b>ovel <b>G</b>ift <b>L</b>inking <b>E</b>ngine</p>
+  </header>
+  <section class="card" id="card" aria-live="polite"></section>
+</div>
+<script src="kringle-codec.js"></script>
+<script>
+(() => {
+  const card = document.getElementById('card');
+  function render() {
+    card.replaceChildren();
+    const code = location.hash.slice(1);
+    const data = code ? KringleCodec.decode(code) : null;
+    if (!data) {
+      const p = document.createElement('p');
+      p.className = 'err';
+      p.textContent = 'This link is missing or damaged. Ask your organizer to send it again.';
+      card.append(p);
+      return;
+    }
+    const greet = document.createElement('p');
+    greet.className = 'greet';
+    const b = document.createElement('b');
+    b.textContent = data.giver;
+    greet.append(b, ', you are getting a gift for:');
+    const r = document.createElement('p');
+    r.className = 'recipient';
+    r.textContent = data.recipient;
+    card.append(greet, r);
+  }
+  render();
+  window.addEventListener('hashchange', render);
+})();
+</script>
+</body>
+</html>

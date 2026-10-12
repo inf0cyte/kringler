@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KRINGLE</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .jeanne-badge {
+    display: none;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: var(--jeanne-bg);
+    color: var(--jeanne);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .app.jeanne .jeanne-badge { display: block; }
+
+  /* ---------- grid ---------- */
+  .head, .row {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .app.jeanne .head, .app.jeanne .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+  .app.locked .head, .app.locked .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  }
+  .app.jeanne.locked .head, .app.jeanne.locked .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr);
+  }
+  .head {
+    padding: 0 2px 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: none;
+  }
+  .app.jeanne .head, .app.locked .head { display: grid; }
+  .c-excl, .c-assign, .c-link { display: none; }
+  .app.jeanne .c-excl, .app.jeanne .c-assign { display: block; }
+  .app.locked .c-link { display: block; }
+
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row.blank-locked { display: none; }
+
+  .cell label.lbl {
+    display: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  /* ---------- inputs ---------- */
+  input.name, input.link, .chipbox {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+  }
+  input.name, input.link { padding: 10px 12px; }
+  input.name:focus, input.link:focus, .chipbox:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  input.name[readonly] { background: transparent; border-color: transparent; font-weight: 600; padding-left: 2px; }
+  input.name[readonly]:focus { outline: none; }
+  .row.dup input.name { border-color: var(--warn); }
+  .dup-note { display: none; color: var(--warn); font-size: 0.8rem; margin-top: 3px; }
+  .row.dup .dup-note { display: block; }
+
+  input.link {
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    color: var(--green);
+    text-overflow: ellipsis;
+  }
+  .link-wrap { position: relative; }
+  .copied {
+    position: absolute;
+    right: 8px; top: 50%;
+    transform: translateY(-50%);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--green);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+  .copied.show { opacity: 1; }
+
+  /* ---------- chip box ---------- */
+  .cb-outer { position: relative; }
+  .chipbox {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    cursor: text;
+  }
+  .chipbox.disabled { opacity: 0.45; cursor: not-allowed; background: transparent; }
+  .chipbox input {
+    flex: 1 1 80px;
+    min-width: 60px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    padding: 4px 2px;
+  }
+  .chipbox input.bad { color: var(--warn); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px 3px 10px;
+    border-radius: 999px;
+    background: var(--chip);
+    color: var(--chip-ink);
+    font-size: 0.9rem;
+    font-weight: 600;
+    max-width: 100%;
+  }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+  }
+  .chip button:hover { background: rgba(0,0,0,.08); }
+  .c-assign .chip { background: var(--jeanne-bg); color: var(--jeanne); }
+
+  .suggest {
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 4px);
+    z-index: 20;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .suggest[hidden] { display: none; }
+  .suggest li {
+    padding: 9px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  .suggest li.active { background: var(--chip); color: var(--chip-ink); }
+  .suggest li.none { color: var(--muted); cursor: default; }
+
+  /* ---------- buttons ---------- */
+  .actions {
+    margin-top: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    max-width: 360px;
+  }
+  button.big {
+    min-height: 52px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--red);
+    color: var(--red-ink);
+    font: 700 1.25rem/1 Georgia, "Times New Roman", serif;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  button.big:active { transform: translateY(1px); }
+  button.meddle, button.reset {
+    min-height: 40px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--grey-btn);
+    color: var(--grey-ink);
+    font: inherit;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+  .app.jeanne button.meddle { background: var(--jeanne-bg); color: var(--jeanne); font-weight: 600; }
+  button.reset { background: transparent; border: 1px solid var(--line); color: var(--ink); min-height: 44px; }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .app.locked button.big, .app.locked button.meddle { display: none; }
+  button.reset { display: none; }
+  .app.locked button.reset { display: block; }
+
+  .msg {
+    margin-top: 14px;
+    min-height: 1.4em;
+    color: var(--warn);
+    font-size: 0.92rem;
+  }
+  .msg.ok { color: var(--green); }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 12px; }
+  .app:not(.locked) .hint.locked-only { display: none; }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 700px) {
+    .app.jeanne .head, .app.locked .head { display: none; }
+    .app.jeanne .row, .app.locked .row {
+      grid-template-columns: minmax(0, 1fr) !important;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 4px);
+      background: var(--surface);
+      gap: 8px;
+    }
+    .app.jeanne .cell label.lbl, .app.locked .cell label.lbl { display: block; }
+    .app.jeanne .c-name label.lbl, .app.locked .c-name label.lbl { display: none; }
+    .actions { max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="brand">
+    <h1>KRINGLE</h1>
+    <p><b>K</b>ramer's <b>R</b>obotically <b>I</b>mposed <b>N</b>ovel <b>G</b>ift <b>L</b>inking <b>E</b>ngine</p>
+  </header>
+
+  <main id="app" class="app">
+    <div class="jeanne-badge" role="status">Jeanne Mode active. Meddle responsibly.</div>
+    <p class="hint locked-only">Tap a link to copy it, then send each person their own link.</p>
+
+    <div class="head" aria-hidden="true">
+      <div>Participant</div>
+      <div class="c-excl">Exclusions</div>
+      <div class="c-assign">Assign</div>
+      <div class="c-link">Link</div>
+    </div>
+    <div class="rows" id="rows"></div>
+
+    <div class="msg" id="msg" aria-live="polite"></div>
+
+    <div class="actions">
+      <button type="button" class="big" id="kringle">KRINGLE!</button>
+      <button type="button" class="meddle" id="meddle">I want to <em>meddle</em>.</button>
+      <button type="button" class="reset" id="reset">Reset</button>
+    </div>
+  </main>
+</div>
+
+<script src="kringle-codec.js"></script>
+<script>
+(() => {
+  const app = document.getElementById('app');
+  const rowsEl = document.getElementById('rows');
+  const msgEl = document.getElementById('msg');
+  const meddleBtn = document.getElementById('meddle');
+
+  const state = { rows: [], jeanne: false, locked: false, nextId: 1 };
+
+  const norm = s => s.trim().toLowerCase();
+  const named = () => state.rows.filter(r => r.name.trim());
+  const byId = id => state.rows.find(r => r.id === id);
+  const nameOf = id => { const r = byId(id); return r ? r.name.trim() : '?'; };
+
+  function setMsg(text, ok) {
+    msgEl.textContent = text || '';
+    msgEl.classList.toggle('ok', !!ok);
+  }
+
+  /* ---------- crypto-random helpers ---------- */
+  function randInt(n) {
+    const lim = Math.floor(0x100000000 / n) * n;
+    const buf = new Uint32Array(1);
+    let x;
+    do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= lim);
+    return x % n;
+  }
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = randInt(i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  /* ---------- chip box (exclusions / assign) ---------- */
+  function ChipBox(row, kind) {
+    const outer = document.createElement('div');
+    outer.className = 'cb-outer';
+    const box = document.createElement('div');
+    box.className = 'chipbox';
+    const chips = document.createElement('div');
+    chips.style.display = 'contents';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('aria-label', kind === 'excl' ? 'Add exclusion' : 'Assign recipient');
+    const list = document.createElement('ul');
+    list.className = 'suggest';
+    list.hidden = true;
+    list.setAttribute('role', 'listbox');
+    box.append(chips, input);
+    outer.append(box, list);
+
+    let options = [];
+    let active = 0;
+
+    const chosen = () => kind === 'excl' ? row.excl : (row.assign ? [row.assign] : []);
+
+    function disabled() {
+      if (state.locked) return true;
+      if (!row.name.trim()) return true;
+      if (kind === 'excl' && row.assign) return true;
+      return false;
+    }
+
+    function candidates() {
+      const q = norm(input.value);
+      const taken = new Set(chosen());
+      const assignedElsewhere = new Set(
+        state.rows.filter(r => r !== row && r.assign).map(r => r.assign)
+      );
+      return named().filter(p => {
+        if (p === row || taken.has(p.id)) return false;
+        if (kind === 'assign' && assignedElsewhere.has(p.id)) return false;
+        return !q || norm(p.name).includes(q);
+      }).sort((a, b) => {
+        const as = norm(a.name).startsWith(q) ? 0 : 1;
+        const bs = norm(b.name).startsWith(q) ? 0 : 1;
+        return as - bs || a.name.localeCompare(b.name);
+      });
+    }
+
+    function showList() {
+      if (disabled()) { hideList(); return; }
+      options = candidates();
+      active = Math.min(active, Math.max(options.length - 1, 0));
+      list.innerHTML = '';
+      if (!options.length) {
+        const li = document.createElement('li');
+        li.className = 'none';
+        li.textContent = input.value.trim() ? 'No matching participant' : 'No names available';
+        list.append(li);
+      } else {
+        options.forEach((p, i) => {
+          const li = document.createElement('li');
+          li.textContent = p.name.trim();
+          li.setAttribute('role', 'option');
+          if (i === active) li.classList.add('active');
+          li.addEventListener('mousedown', e => { e.preventDefault(); confirm(p.id); });
+          list.append(li);
+        });
+      }
+      input.classList.toggle('bad', !!input.value.trim() && !options.length);
+      list.hidden = false;
+    }
+    function hideList() { list.hidden = true; }
+
+    function confirm(id) {
+      if (kind === 'excl') { if (!row.excl.includes(id)) row.excl.push(id); }
+      else row.assign = id;
+      input.value = '';
+      input.classList.remove('bad');
+      active = 0;
+      refreshAll();
+      hideList();
+    }
+
+    function remove(id) {
+      if (kind === 'excl') row.excl = row.excl.filter(x => x !== id);
+      else row.assign = null;
+      refreshAll();
+      if (!input.hidden && !input.disabled) input.focus();
+    }
+
+    function tryConfirmTyped() {
+      const q = norm(input.value);
+      if (!q) return false;
+      const exact = options.find(p => norm(p.name) === q);
+      const pick = exact || (options.length ? options[active] : null);
+      if (pick) { confirm(pick.id); return true; }
+      input.classList.add('bad');
+      return false;
+    }
+
+    input.addEventListener('focus', showList);
+    input.addEventListener('input', () => { active = 0; showList(); });
+    input.addEventListener('blur', () => {
+      hideList();
+      input.value = '';
+      input.classList.remove('bad');
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, options.length - 1); showList(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); showList(); }
+      else if (e.key === 'Enter') { e.preventDefault(); tryConfirmTyped(); }
+      else if (e.key === 'Tab' && input.value.trim()) { if (tryConfirmTyped()) e.preventDefault(); }
+      else if (e.key === 'Escape') { input.value = ''; hideList(); }
+      else if (e.key === 'Backspace' && !input.value) {
+        const c = chosen();
+        if (c.length) remove(c[c.length - 1]);
+      }
+    });
+    box.addEventListener('mousedown', e => {
+      if (e.target === box && !input.disabled) { e.preventDefault(); input.focus(); }
+    });
+
+    function render() {
+      const dis = disabled();
+      box.classList.toggle('disabled', dis);
+      input.disabled = dis;
+      chips.innerHTML = '';
+      for (const id of chosen()) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        const t = document.createElement('span');
+        t.textContent = nameOf(id);
+        chip.append(t);
+        if (!dis) {
+          const x = document.createElement('button');
+          x.type = 'button';
+          x.textContent = '×';
+          x.setAttribute('aria-label', 'Remove ' + nameOf(id));
+          x.addEventListener('click', () => remove(id));
+          chip.append(x);
+        }
+        chips.append(chip);
+      }
+      const full = kind === 'assign' && row.assign;
+      input.hidden = !!full;
+      input.style.display = full ? 'none' : '';
+      input.placeholder = (chosen().length || state.locked) ? '' :(kind === 'excl' ? 'Add names…' : 'Name…');
+      if (dis) hideList();
+    }
+
+    return { el: outer, render };
+  }
+
+  /* ---------- rows ---------- */
+  function makeCell(cls, labelText) {
+    const cell = document.createElement('div');
+    cell.className = 'cell ' + cls;
+    const lbl = document.createElement('label');
+    lbl.className = 'lbl';
+    lbl.textContent = labelText;
+    cell.append(lbl);
+    return cell;
+  }
+
+  function addRow() {
+    const row = { id: state.nextId++, name: '', excl: [], assign: null, link: '' };
+    const root = document.createElement('div');
+    root.className = 'row';
+
+    const cName = makeCell('c-name', 'Participant');
+    const name = document.createElement('input');
+    name.className = 'name';
+    name.type = 'text';
+    name.placeholder = 'Name';
+    name.autocomplete = 'off';
+    name.setAttribute('aria-label', 'Participant name');
+    const dupNote = document.createElement('div');
+    dupNote.className = 'dup-note';
+    dupNote.textContent = 'Duplicate name';
+    cName.append(name, dupNote);
+
+    const cExcl = makeCell('c-excl', 'Exclusions');
+    const excl = ChipBox(row, 'excl');
+    cExcl.append(excl.el);
+
+    const cAssign = makeCell('c-assign', 'Assign');
+    const assign = ChipBox(row, 'assign');
+    cAssign.append(assign.el);
+
+    const cLink = makeCell('c-link', 'Link');
+    const linkWrap = document.createElement('div');
+    linkWrap.className = 'link-wrap';
+    const link = document.createElement('input');
+    link.className = 'link';
+    link.type = 'text';
+    link.readOnly = true;
+    link.setAttribute('aria-label', 'Reveal link (click to copy)');
+    const copied = document.createElement('span');
+    copied.className = 'copied';
+    copied.textContent = 'Copied';
+    linkWrap.append(link, copied);
+    cLink.append(linkWrap);
+    link.addEventListener('click', () => copyLink(link, copied));
+
+    root.append(cName, cExcl, cAssign, cLink);
+    rowsEl.append(root);
+
+    name.addEventListener('input', () => {
+      row.name = name.value;
+      ensureTrailingBlank();
+      refreshAll();
+    });
+    name.addEventListener('blur', () => {
+      if (!row.name.trim() && state.rows[state.rows.length - 1] !== row) removeRow(row);
+    });
+    name.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const i = state.rows.indexOf(row);
+        const next = state.rows[i + 1];
+        if (next) next.dom.name.focus();
+      }
+    });
+
+    row.dom = { root, name, excl, assign, link };
+    state.rows.push(row);
+    return row;
+  }
+
+  function removeRow(row) {
+    state.rows = state.rows.filter(r => r !== row);
+    for (const r of state.rows) {
+      r.excl = r.excl.filter(id => id !== row.id);
+      if (r.assign === row.id) r.assign = null;
+    }
+    row.dom.root.remove();
+    ensureTrailingBlank();
+    refreshAll();
+  }
+
+  function ensureTrailingBlank() {
+    const last = state.rows[state.rows.length - 1];
+    if (!last || last.name.trim()) addRow();
+  }
+
+  function refreshAll() {
+    app.classList.toggle('jeanne', state.jeanne);
+    app.classList.toggle('locked', state.locked);
+    meddleBtn.innerHTML = state.jeanne ? 'Stop <em>meddling</em>.' : 'I want to <em>meddle</em>.';
+    meddleBtn.setAttribute('aria-pressed', String(state.jeanne));
+
+    const counts = {};
+    for (const r of named()) counts[norm(r.name)] = (counts[norm(r.name)] || 0) + 1;
+
+    for (const r of state.rows) {
+      const { root, name, excl, assign, link } = r.dom;
+      name.readOnly = state.locked;
+      root.classList.toggle('dup', !!r.name.trim() && counts[norm(r.name)] > 1);
+      root.classList.toggle('blank-locked', state.locked && !r.name.trim());
+      excl.render();
+      assign.render();
+      link.value = r.link;
+    }
+  }
+
+  /* ---------- clipboard ---------- */
+  async function copyLink(input, badge) {
+    if (!input.value) return;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(input.value);
+      ok = true;
+    } catch {
+      input.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+    }
+    input.setSelectionRange(0, 0);
+    input.blur();
+    badge.textContent = ok ? 'Copied' : 'Copy failed';
+    badge.classList.add('show');
+    clearTimeout(badge._t);
+    badge._t = setTimeout(() => badge.classList.remove('show'), 1400);
+  }
+
+  /* ---------- solver ---------- */
+  // allowed[i] = Set of indices participant i may give to.
+  // Uniform rejection sampling first; falls back to bipartite matching,
+  // which also proves infeasibility when no arrangement exists.
+  function solve(allowed) {
+    const n = allowed.length;
+    const perm = [...Array(n).keys()];
+    for (let t = 0; t < 100000; t++) {
+      shuffle(perm);
+      if (perm.every((j, i) => allowed[i].has(j))) return perm.slice();
+    }
+    const adj = allowed.map(s => shuffle([...s]));
+    const matchR = new Array(n).fill(-1);
+    function augment(i, seen) {
+      for (const j of adj[i]) {
+        if (seen[j]) continue;
+        seen[j] = true;
+        if (matchR[j] < 0 || augment(matchR[j], seen)) { matchR[j] = i; return true; }
+      }
+      return false;
+    }
+    for (const i of shuffle([...Array(n).keys()])) {
+      if (!augment(i, new Array(n).fill(false))) return null;
+    }
+    const res = new Array(n);
+    matchR.forEach((i, j) => { res[i] = j; });
+    return res;
+  }
+
+  function revealBase() {
+    const u = new URL('reveal.html', location.href);
+    u.search = '';
+    u.hash = '';
+    return u.href;
+  }
+
+  function kringle() {
+    setMsg('');
+    const people = named();
+    if (people.length < 2) { setMsg('Enter at least two names.'); return; }
+    if (state.rows.some(r => r.dom.root.classList.contains('dup'))) {
+      setMsg('Each name must be unique.');
+      return;
+    }
+    const idx = new Map(people.map((p, i) => [p.id, i]));
+    const allowed = people.map((p, i) => {
+      if (state.jeanne && p.assign && idx.has(p.assign)) return new Set([idx.get(p.assign)]);
+      const s = new Set(people.map((_, j) => j).filter(j => j !== i));
+      if (state.jeanne) for (const id of p.excl) if (idx.has(id)) s.delete(idx.get(id));
+      return s;
+    });
+    const result = solve(allowed);
+    if (!result) {
+      setMsg('No arrangement satisfies these exclusions and assignments. Loosen the meddling and try again.');
+      return;
+    }
+    const base = revealBase();
+    people.forEach((p, i) => {
+      p.link = base + '#' + KringleCodec.encode(p.name.trim(), people[result[i]].name.trim());
+    });
+    state.locked = true;
+    if (document.activeElement) document.activeElement.blur();
+    refreshAll();
+    setMsg('KRINGLED.', true);
+  }
+
+  function reset() {
+    state.locked = false;
+    for (const r of state.rows) r.link = '';
+    setMsg('');
+    refreshAll();
+  }
+
+  document.getElementById('kringle').addEventListener('click', kringle);
+  document.getElementById('reset').addEventListener('click', reset);
+  meddleBtn.addEventListener('click', () => { state.jeanne = !state.jeanne; refreshAll(); });
+
+  addRow();
+  refreshAll();
+  state.rows[0].dom.name.focus();
+})();
+</script>
+</body>
+</html>
