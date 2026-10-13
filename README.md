@@ -18,6 +18,15 @@ draw that runs entirely in the browser. It has no server and no database.
    pick `main` and `/ (root)`, then click **Save**.
 4. The site appears at `https://<username>.github.io/kringler/`.
 
+## Sending links
+
+After a draw, each person's row has a **Send** button. On devices with a
+system share menu (most phones), it opens that menu so the organizer can send
+the link by Mail, Messages, or any other app. Elsewhere, it opens the default
+email app with a prefilled subject and message. The message contains only the
+link, never the recipient's name. Mail goes out from the organizer's own
+account; KRINGLE has no sending service of its own.
+
 ## Notes
 
 - Reveal links are obfuscated, not encrypted. Anyone who has a link and this

@@ -89,7 +89,22 @@
     color: var(--green);
     text-overflow: ellipsis;
   }
-  .link-wrap { position: relative; }
+  .link-line { display: flex; gap: 8px; align-items: stretch; }
+  .link-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
+  button.send {
+    flex: 0 0 auto;
+    min-height: 44px;
+    min-width: 84px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--green);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.send.done { background: var(--chip); color: var(--chip-ink); }
   .copied {
     position: absolute;
     right: 8px; top: 50%;
@@ -252,7 +267,7 @@
 
   <main id="app" class="app">
     <div class="jeanne-badge" role="status">Jeanne Mode active. Meddle responsibly.</div>
-    <p class="hint locked-only">Tap a link to copy it, then send each person their own link.</p>
+    <p class="hint locked-only">Tap Send to share each person's link with them, or tap a link to copy it.</p>
 
     <div class="head" aria-hidden="true">
       <div>Participant</div>
@@ -510,8 +525,16 @@
     copied.className = 'copied';
     copied.textContent = 'Copied';
     linkWrap.append(link, copied);
-    cLink.append(linkWrap);
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'send';
+    send.textContent = 'Send';
+    const linkLine = document.createElement('div');
+    linkLine.className = 'link-line';
+    linkLine.append(linkWrap, send);
+    cLink.append(linkLine);
     link.addEventListener('click', () => copyLink(link, copied));
+    send.addEventListener('click', () => sendLink(row, send));
 
     root.append(cName, cExcl, cAssign, cLink);
     rowsEl.append(root);
@@ -533,7 +556,7 @@
       }
     });
 
-    row.dom = { root, name, excl, assign, link };
+    row.dom = { root, name, excl, assign, link, send };
     state.rows.push(row);
     return row;
   }
@@ -564,7 +587,8 @@
     for (const r of named()) counts[norm(r.name)] = (counts[norm(r.name)] || 0) + 1;
 
     for (const r of state.rows) {
-      const { root, name, excl, assign, link } = r.dom;
+      const { root, name, excl, assign, link, send } = r.dom;
+      if (!r.link) { send.classList.remove('done'); send.textContent = 'Send'; }
       name.readOnly = state.locked;
       root.classList.toggle('dup', !!r.name.trim() && counts[norm(r.name)] > 1);
       root.classList.toggle('blank-locked', state.locked && !r.name.trim());
@@ -591,6 +615,32 @@
     badge.classList.add('show');
     clearTimeout(badge._t);
     badge._t = setTimeout(() => badge.classList.remove('show'), 1400);
+  }
+
+  /* ---------- send (share sheet, falling back to mailto) ---------- */
+  function sendLink(row, btn) {
+    if (!row.link) return;
+    const who = row.name.trim();
+    const subject = 'Your KRINGLE gift assignment';
+    const text = 'Hi ' + who + '! Your gift exchange assignment is ready. ' +
+      'Open this link to see who you are getting a gift for:';
+    const markSent = () => {
+      btn.classList.add('done');
+      btn.textContent = '✓ Sent';
+    };
+    const mailto = () => {
+      const body = text + '\r\n\r\n' + row.link;
+      location.href = 'mailto:?subject=' + encodeURIComponent(subject) +
+        '&body=' + encodeURIComponent(body);
+      markSent();
+    };
+    if (navigator.share) {
+      navigator.share({ title: subject, text: text, url: row.link })
+        .then(markSent)
+        .catch(err => { if (!err || err.name !== 'AbortError') mailto(); });
+    } else {
+      mailto();
+    }
   }
 
   /* ---------- solver ---------- */
